@@ -25,12 +25,22 @@ manager, and give it 0755 permission by using command 'chmod 0755 /data/adb/serv
 
 ## Usage
 Hint: This is a terminal app, please use terminal interface to interact with it.
+The script can be called using 'blcore' or 'binloader', use 'blcore help' to show help documents.
 ### How to install a package
 This script can manage a simple package that contains your own executables.
 To install a new package, just type 'blcore install [full package path]' in terminal or adb,
 follow the step that script displays to finish whole installation. If the package was already
 installed, the loader will ask for replacement.
-## How to remove a package
+### How to remove a package
 To remove a package, just type 'blcore remove [package name]'. If you forgotten the name, you
 can use 'blcore ls' to list all installed packages.
+
+## Making your own package
+# Package Structure
+To make thing easier, the package structure was designed to be more simple. A package usually contains following files:
+1. 'programs' folder, put your own executables into this folder;
+2. 'pkginfo' file, fill it with following format:
+pkgname=[YOUR_PACKAGE_NAME]
+version=[VERSION_OF_PACKAGE]
+execpath=[YOUR_EXECUTABLE_FILE_NAME_IN PROGRAMS]
 
