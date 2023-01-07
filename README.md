@@ -36,11 +36,18 @@ To remove a package, just type 'blcore remove [package name]'. If you forgotten 
 can use 'blcore ls' to list all installed packages.
 
 ## Making your own package
-# Package Structure
 To make thing easier, the package structure was designed to be more simple. A package usually contains following files:
 1. 'programs' folder, put your own executables into this folder;
 2. 'pkginfo' file, fill it with following format:
 pkgname=[YOUR_PACKAGE_NAME]
 version=[VERSION_OF_PACKAGE]
-execpath=[YOUR_EXECUTABLE_FILE_NAME_IN PROGRAMS]
+execpath=[EXECUTABLE_FILE_PATH]  Hint: for ./program/your_exec.sh, just provide: your_exec.sh
+execname=[EXECUTABLE_NAME]   Hint: this name decides what your executable calls in terminal
+3. Pack 'programs' and 'pkginfo' up into a tar file, such as MYMOD.tar
+4. Finished and flash it by install steps.
+
+## Footnote
+This script simply use symlinks to inject various executables to '/bin' at every boot, making them accessiable in terminal emulator,
+so a magic mount (bind mount) for '/system/bin' is required. It is welcome to distribute my program, becuase it is untechical and 
+quite simple, you can make it useful by modifying by yourself, thanks for your support.
 
