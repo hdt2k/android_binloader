@@ -20,7 +20,7 @@ defpath=/data/binloader
 cd $defpath/tmp
 
 # Version Info:
-blcore_ver="1.0.1"
+blcore_ver="1.1"
 
 # First deployment:
 function first_deploy() {
@@ -53,20 +53,21 @@ function strecho() {
 
  case $1 in
  vdone)
-  echo "Package verification succeed."
+  echo "Package verified."
  ;;
  indone)
-  echo "Package installation succeed."
+  echo "Package installed successfully."
  ;;
  help)
   echo "BINLOADER - A program that is able to load custom binaries to system."
   echo "Usage: binloader (blcore) [Options]"
   echo "Options:"
-  echo "   install [pkg_path] - Install a new mod package."
-  echo "   remove [pkg_path] - Remove a installed package."
+  echo "   install [path] - install a new package."
+  echo "   remove [path] - remove a installed package."
   echo "   ls - list all installed packages."
   echo "   ver - show blcore version information."
-  echo "   help - Show this help documents."
+  echo "   status - show blcore status."
+  echo "   help - show this help documents."
   echo "Created by hdtune2k."
  ;;
  rmdone)
@@ -77,13 +78,13 @@ function strecho() {
   echo "Verifying package information..."
  ;;
  nopkginfo)
-  echo "Error: PkgInfo file not found."
+  echo "Error: pkginfo file not found."
  ;;
  noprogfiles)
   echo "Error: no program files found."
  ;;
  noexec)
-  echo "Error: No executables found."
+  echo "Error: no executables found."
  ;;
  fnf)
   echo "Error: file not found."
@@ -101,6 +102,9 @@ function strecho() {
   echo Version: $3
   echo Executable: $4
   echo Exec name: $5
+  if [ -n "$6" ]; then
+   echo Run at Boot: $6
+  fi
   # install confirmation:
   echo -n "Proceed installation?(y/n):"
   read result
@@ -119,7 +123,6 @@ function strecho() {
   esac
  ;;
  inst_showinfo)
-  echo "Binloader Core Version $blcore_ver"
   echo "Start to unpack package..."
  ;;
  pnf)
@@ -148,7 +151,40 @@ function strecho() {
   ;;
   esac
  ;;
-
+ rabnf)
+  echo "Error: run at boot executable not found."
+ ;;
+ onlyrabins)
+  echo "<!> This package cannot access by terminal interface, it only runs at device boot."
+  echo "Loaded package information:"
+  echo "Name: $2"
+  echo "Run at Boot Exec: $3"
+  echo -n "Proceed installation?(y/n):"
+  read rpres
+  case $rpres in
+  y)
+   echo "Installing package ..."
+  ;;
+  n)
+   echo "Aborted."
+   exit
+  ;;
+  *)
+   echo "Error: invalid option."
+   exit
+  ;;
+  esac
+ ;;
+ rabdetect)
+  echo "Boot script generated."
+ ;;
+ execnameerr)
+  echo "Error: package exec name not specified."
+ ;;
+ noinput)
+  echo "Error: invalid option specified."
+  echo "Type 'blcore help' to show help documents."
+ ;;
  esac
 
  # Exit detect:
@@ -176,7 +212,7 @@ function boot_init() {
  done
  
  # Mark mods injection state:
- echo Mod_Injection_Executed_Completed > $defpath/tmp/injection_status
+ echo 1 > $defpath/tmp/mod_injection
 
  exit 0
  
@@ -228,7 +264,7 @@ function pkg_install() {
 
   strecho unpaked
  
- # Verify and load PkgInfo config:
+ # Load pkginfo config:
  pkgname=`cat $defpath/tmp/inst/pkginfo|grep pkgname|cut -d '[' -f2|cut -d ']' -f1`
   strecho loadname
  pkgversion=`cat $defpath/tmp/inst/pkginfo|grep version|cut -d '[' -f2|cut -d ']' -f1`
@@ -237,35 +273,93 @@ function pkg_install() {
   strecho loadepath
  execname=`cat $defpath/tmp/inst/pkginfo|grep execname|cut -d '[' -f2|cut -d ']' -f1`
   strecho loadename
+ runatboot=`cat $defpath/tmp/inst/pkginfo|grep runatboot|cut -d '[' -f2|cut -d ']' -f1`
 
+ # Default only run at boot as false
+ onlyrab=0
+
+ # Verify pkginfo:
  if [ ! -n "$pkgname" ]; then
     strecho pvf exit
  fi
  if [ ! -n "$pkgversion" ]; then
     strecho pvf exit
  fi
-  if [ ! -n "$execpath" ]; then
+ if [ ! -n "$execpath" ]; then
+   if [ ! -n "$runatboot" ]; then
     strecho pvf exit
+   fi
  fi
+ # Execname and onlyrunatboot state check:
  if [ ! -n "$execname" ]; then
+   # Exit when runatboot not exist
+   if [ ! -n "$runatboot" ]; then
     strecho pvf exit
+   fi
+   # Exit when execpath without execname
+   if [ -n "$execpath" ]; then
+      strecho execnameerr exit
+   fi
+   onlyrab=1 # Only-run-at-boot package identify.
  fi
- if [ ! -f $defpath/tmp/inst/programs/$execpath ]; then
+
+ # Executable path verify:
+ if [ ! -f $defpath/tmp/inst/programs/$execpath -a $onlyrab -eq 0 ]; then
   strecho noexec
   strecho upakfail exit
  fi
 
+ # Onlyrab package installation:
+ if [ $onlyrab -eq 1 ]; then
+   if [ ! -f $defpath/tmp/inst/programs/$runatboot ]; then
+    strecho rabnf exit
+   fi
+   # Confirmation:
+   strecho onlyrabins $pkgname $runatboot
+    # Check if already installed:
+    if [ -d $defpath/mods/$pkgname ]; then
+     strecho updconfirm $pkgname $pkgversion
+     # Removes old copies:
+     rm -rf $defpath/mods/$pkgname
+     if [ -f $defpath/configs/linkers/$pkgname.linker ]; then
+      rm $defpath/configs/linkers/$pkgname.linker
+     fi
+    fi
+   # Copy new files:
+   mkdir $defpath/mods/$pkgname
+   cp $defpath/tmp/inst/pkginfo $defpath/mods/$pkgname > /dev/null
+   cp -r $defpath/tmp/inst/programs/* $defpath/mods/$pkgname > /dev/null
+   chmod 0755 $defpath/mods/$pkgname/*
+   # Create runner:
+   echo "#!/bin/sh" >> /data/adb/service.d/$pkgname.sh
+   echo "$defpath/mods/$pkgname/$runatboot" >> /data/adb/service.d/$pkgname.sh
+   chmod 0755 /data/adb/service.d/$pkgname.sh
+   strecho indone exit
+   # End of RaB installation
+ fi
+ # Note: if onlyrab package installed, program will exit till here.
+
+ # Normal package and normal runatboot package installation:
  strecho vdone
- strecho pinfo $pkgname $pkgversion $execpath $execname
+ # Confirmation:
+ strecho pinfo $pkgname $pkgversion $execpath $execname $runatboot
 
  # Check if already installed:
  if [ -d $defpath/mods/$pkgname ]; then
-
   strecho updconfirm $pkgname $pkgversion
   # Removes old copies:
   rm -rf $defpath/mods/$pkgname
-  rm $defpath/configs/linkers/$pkgname.linker
+  if [ -f $defpath/configs/linkers/$pkgname.linker ]; then
+   rm $defpath/configs/linkers/$pkgname.linker
+  fi
+ fi
 
+ # Verify normal run at boot:
+ if [ -n "$runatboot" ]; then
+  strecho rabdetect
+  echo "#!/bin/sh" >> /data/adb/service.d/$pkgname.sh
+  echo "$defpath/mods/$pkgname/$runatboot" >> /data/adb/service.d/$pkgname.sh
+  chmod 0755 /data/adb/service.d/$pkgname.sh
  fi
 
  # Install package into system:
@@ -273,8 +367,8 @@ function pkg_install() {
  # Create mod dir:
  mkdir $defpath/mods/$pkgname
  # Copy new files:
- cp $defpath/tmp/inst/pkginfo $defpath/mods/$pkgname
- cp -r $defpath/tmp/inst/programs/* $defpath/mods/$pkgname
+ cp $defpath/tmp/inst/pkginfo $defpath/mods/$pkgname > /dev/null
+ cp -r $defpath/tmp/inst/programs/* $defpath/mods/$pkgname > /dev/null
  # Create linker:
  echo "#!/bin/sh" >> $defpath/configs/linkers/$pkgname.linker
  echo "ln -s $defpath/mods/$pkgname/$execpath /bin/$execname" >> $defpath/configs/linkers/$pkgname.linker
@@ -283,6 +377,7 @@ function pkg_install() {
  chmod 0755 $defpath/configs/linkers/$pkgname.linker
 
  strecho indone
+ # End of norm installation, program exits.
 
 }
 
@@ -293,9 +388,16 @@ function pkg_remove() {
   strecho pnf exit
  fi
 
+ # Check if runatboot enabled:
+ if [ -f /data/adb/service.d/$1.sh ]; then
+   rm /data/adb/service.d/$1.sh
+ fi
+
  # Remove specified package:
  rm -rf $defpath/mods/$1
- rm $defpath/configs/linkers/$1.linker
+ if [ -f $defpath/configs/linkers/$1.linker ];then
+  rm $defpath/configs/linkers/$1.linker > /dev/null
+ fi
 
  strecho rmdone
 
@@ -308,10 +410,54 @@ function pkg_ls() {
 
 }
 
+function blstatus() {
+ 
+ # Loader status display:
+ loaderstats=`cat $defpath/configs/inststate`
+ modinjectstats=`cat $defpath/tmp/mod_injection`
+ 
+ case $loaderstats in
+ 1)
+  echo Loader installation: True
+ ;;
+ 0)
+  echo Loader installation: Reset
+  reset_stat=2
+ ;;
+ *)
+  echo Loader installation: Invalid
+  inv_stat=1
+ ;;
+ esac
+ 
+ case $modinjectstats in
+ 1)
+  echo Mod injection: True
+ ;;
+ 0)
+  echo Mod injection: False
+ ;;
+ *)
+  echo Mod injection: Invalid
+  inv_stat=1
+ ;;
+ esac
+ 
+ if [ $inv_stat -eq 1 ]; then
+  echo "<Warn> invalid control file modification."
+ fi
+ if [ $reset_stat -eq 2 ]; then
+  echo "<Warn> loader will reset at next boot."
+ fi
+ 
+ exit
+ 
+}
+
 # Main Program Area
 # Following codes will be executed at every boot:
 
-if [ ! -f $defpath/tmp/injection_status ]; then
+if [ ! -f $defpath/tmp/mod_injection ]; then
 
  # Check binloader deployment state:
  if [ ! -f $defpath/configs/inststate ]; then
@@ -345,6 +491,12 @@ ls)
 ;;
 ver)
  version
+;;
+status)
+ blstatus
+;;
+*)
+ strecho noinput exit
 ;;
 esac
 
