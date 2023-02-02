@@ -52,6 +52,8 @@ execpath=[EXECUTABLE_FILE_PATH]  Hint: for ./program/your_exec.sh, just provide:
 
 execname=[EXECUTABLE_NAME]   Hint: this name decides what your executable calls in terminal
 
+runatboot=[EXECUTABLE FILE]   Hint: define startup script name
+
 
 3. Pack 'programs' and 'pkginfo' up into a tar file, such as MYMOD.tar
 4. Finished and flash it by install steps.
