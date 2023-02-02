@@ -39,10 +39,20 @@ can use 'blcore ls' to list all installed packages.
 To make thing easier, the package structure was designed to be more simple. A package usually contains following files:
 1. 'programs' folder, put your own executables into this folder;
 2. 'pkginfo' file, fill it with following format:
+
+
 pkgname=[YOUR_PACKAGE_NAME]
+
+
 version=[VERSION_OF_PACKAGE]
+
+
 execpath=[EXECUTABLE_FILE_PATH]  Hint: for ./program/your_exec.sh, just provide: your_exec.sh
+
+
 execname=[EXECUTABLE_NAME]   Hint: this name decides what your executable calls in terminal
+
+
 3. Pack 'programs' and 'pkginfo' up into a tar file, such as MYMOD.tar
 4. Finished and flash it by install steps.
 
