@@ -17,7 +17,7 @@ responsible for any data loses or device damage of yours.
 2. An android terminal emulator app installed (Termux is recommended);
 3. Install any module that is able to magic mount the '/system/bin' directory.
 You can make your own Magisk module to make "/system/bin" magic mounted, or just 
-install a same function module (nano for Android NDK module is tested working, 
+install module that has same effect (nano for Android NDK module is tested working, 
 you can get it at Magisk's official repo);
 3. Copy the 'binloader.sh' to '/data/adb/service.d' directory using root file 
 manager, and give it 0755 permission by using command 'chmod 0755 /data/adb/service.d/binloader.sh';
